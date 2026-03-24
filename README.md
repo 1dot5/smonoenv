@@ -10,7 +10,10 @@ Manage all app environment variables in a single `.env.monorepo.<env>` file and 
 npm install -g @1dot5/smonoenv
 
 # or as a devDependency
-pnpm add -D @1dot5/smonoenv
+npm install -D @1dot5/smonoenv
+
+# use npx
+npx @1dot5/smonoenv
 ```
 
 ### Prerequisites
