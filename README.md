@@ -146,22 +146,6 @@ smonoenv sync staging      # staging を展開
 | `--clean` | sync 前に既存の .env ファイルを削除 |
 | `--quiet` | 情報出力を抑制 |
 
-### `smonoenv cloud-run <file>`
-
-`.env` ファイルを Cloud Run の `--set-env-vars` 形式に変換して出力する。
-
-```bash
-smonoenv cloud-run .env
-# => KEY1=value1,KEY2=value2,...
-```
-
-デプロイスクリプトで使用:
-
-```bash
-gcloud run deploy my-service \
-  --set-env-vars "$(smonoenv cloud-run .env.monorepo.production)"
-```
-
 ## 典型的なワークフロー
 
 ### 新メンバーのオンボーディング
