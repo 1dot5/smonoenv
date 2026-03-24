@@ -7,7 +7,6 @@ import { decrypt } from "./commands/decrypt.js";
 import { edit } from "./commands/edit.js";
 import { sync } from "./commands/sync.js";
 import { local } from "./commands/local.js";
-import { cloudRun } from "./commands/cloud-run.js";
 
 function usage(): void {
   console.log(`
@@ -23,7 +22,6 @@ Commands:
   edit <env>         Edit encrypted file directly with $EDITOR
   sync [env]         Sync decrypted env to apps (default: local)
   local              Decrypt + sync local environment (shortcut)
-  cloud-run <file>   Convert .env file to Cloud Run --set-env-vars format
   help               Show this help
 
 Setup options:
@@ -45,7 +43,6 @@ Examples:
   smonoenv decrypt staging          # Decrypt staging secrets
   smonoenv encrypt production       # Encrypt production secrets
   smonoenv sync --check             # CI: verify env files are in sync
-  smonoenv cloud-run .env           # Output Cloud Run format
 `);
 }
 
@@ -96,16 +93,6 @@ switch (command) {
   case "local":
     local();
     break;
-
-  case "cloud-run": {
-    const file = positional[1];
-    if (!file) {
-      console.error("Usage: smonoenv cloud-run <env-file>");
-      process.exit(1);
-    }
-    cloudRun(file);
-    break;
-  }
 
   case "help":
   case "--help":
