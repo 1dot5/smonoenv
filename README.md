@@ -229,8 +229,8 @@ smonoenv sync
 CLI だけでなく、Node.js から直接 import して使うこともできる:
 
 ```typescript
-import { parseMono, normalize, parseEnvFile } from "@furuneo/smonoenv";
-import { sync, decrypt, encrypt } from "@furuneo/smonoenv";
+import { parseMono, normalize, parseEnvFile } from "@1dot5/smonoenv";
+import { sync, decrypt, encrypt } from "@1dot5/smonoenv";
 ```
 
 ## ライセンス
