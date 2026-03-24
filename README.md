@@ -204,6 +204,145 @@ smonoenv sync
 - run: smonoenv sync --check
 ```
 
+### GitHub Actions で .env ファイルを生成する
+
+CI/CD で実際の `.env` ファイルが必要なケース（Next.js のビルド、E2E テスト、Docker ビルドなど）では、age 秘密鍵を GitHub Actions Secret に登録し、`decrypt` → `sync` で `.env` ファイルを生成する。
+
+#### 1. age 秘密鍵を Secret に登録
+
+```bash
+# ローカルの age 秘密鍵の内容を確認
+cat ~/.config/sops/age/keys.txt
+```
+
+GitHub リポジトリの **Settings → Secrets and variables → Actions** で `SOPS_AGE_KEY` として登録する。
+（鍵ファイルの中身をそのまま貼り付ける）
+
+#### 2. ワークフローの書き方
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # sops と age をインストール
+      - name: Install sops and age
+        run: |
+          curl -Lo /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64
+          chmod +x /usr/local/bin/sops
+          curl -Lo age.tar.gz https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-linux-amd64.tar.gz
+          tar xf age.tar.gz
+          mv age/age /usr/local/bin/
+          mv age/age-keygen /usr/local/bin/
+
+      # age 秘密鍵を配置
+      - name: Setup age key
+        run: |
+          mkdir -p ~/.config/sops/age
+          echo "${{ secrets.SOPS_AGE_KEY }}" > ~/.config/sops/age/keys.txt
+
+      - run: pnpm install --frozen-lockfile
+
+      # .env.monorepo.staging.sops を復号 → 各アプリに .env を展開
+      - name: Generate .env files
+        run: |
+          npx smonoenv decrypt staging
+          npx smonoenv sync staging
+
+      # これ以降、各アプリの .env ファイルが生成された状態でビルド・テストを実行
+      - run: pnpm build
+      - run: pnpm test
+```
+
+#### 3. self-hosted ランナーの場合
+
+self-hosted ランナーでは `sops` / `age` をあらかじめインストールしておけば、鍵の配置ステップだけで済む:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Setup age key
+    run: |
+      mkdir -p ~/.config/sops/age
+      echo "${{ secrets.SOPS_AGE_KEY }}" > ~/.config/sops/age/keys.txt
+
+  - name: Generate .env files
+    run: |
+      npx smonoenv decrypt production
+      npx smonoenv sync production
+
+  - run: pnpm build
+```
+
+#### 4. 環境ごとに使い分ける
+
+GitHub Actions の `environment` と組み合わせて、デプロイ先に応じた `.env` を生成できる:
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    steps:
+      # ... checkout, setup 省略 ...
+
+      - name: Generate .env files
+        run: |
+          ENV_NAME=${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          npx smonoenv decrypt $ENV_NAME
+          npx smonoenv sync $ENV_NAME
+```
+
+#### 5. セキュリティ: self-hosted ランナーでのクリーンアップ
+
+GitHub-hosted ランナーではジョブ終了後に VM ごと破棄されるため問題ないが、self-hosted ランナーではファイルが残り続ける。`always()` を使って成功・失敗に関わらずクリーンアップする:
+
+```yaml
+jobs:
+  build:
+    runs-on: [self-hosted]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup age key
+        run: |
+          mkdir -p ~/.config/sops/age
+          echo "${{ secrets.SOPS_AGE_KEY }}" > ~/.config/sops/age/keys.txt
+
+      - name: Generate .env files
+        run: |
+          npx smonoenv decrypt production
+          npx smonoenv sync production
+
+      - run: pnpm build
+      - run: pnpm test
+
+      # 成功・失敗に関わらず必ず実行
+      - name: Cleanup secrets
+        if: always()
+        run: |
+          rm -f ~/.config/sops/age/keys.txt
+          rm -f .env.monorepo.*
+          find . -name '.env' -not -path './node_modules/*' -delete
+          find . -name '.env.*' -not -name '.env.example' -not -path './node_modules/*' -delete
+```
+
 ## 環境
 
 | 環境名 | 用途 |
