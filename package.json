@@ -1,13 +1,23 @@
 {
-  "name": "@furuneo/smonoenv",
-  "version": "0.1.0",
+  "name": "@1dot5/smonoenv",
+  "version": "0.2.0",
   "description": "SOPS + age secret management CLI for monorepo environment files",
-  "type": "module",
-  "bin": {
-    "smonoenv": "./dist/cli.js"
+  "homepage": "https://github.com/1dot5/smonoenv#readme",
+  "bugs": {
+    "url": "https://github.com/1dot5/smonoenv/issues"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1dot5/smonoenv.git"
+  },
+  "license": "MIT",
+  "author": "",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "smonoenv": "dist/cli.js"
+  },
   "files": [
     "dist"
   ],
@@ -16,19 +26,14 @@
     "dev": "tsc --watch",
     "prepublishOnly": "tsc"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/furuneo/smonoenv.git"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "license": "MIT",
-  "engines": {
-    "node": ">=18"
-  },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
