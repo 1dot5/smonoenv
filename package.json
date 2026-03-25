@@ -1,6 +1,6 @@
 {
   "name": "@1dot5/smonoenv",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SOPS + age secret management CLI for monorepo environment files",
   "homepage": "https://github.com/1dot5/smonoenv#readme",
   "bugs": {
