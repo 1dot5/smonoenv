@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/1dot5/smonoenv/compare/smonoenv-v0.3.0...smonoenv-v0.3.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* parse issue ([4086e48](https://github.com/1dot5/smonoenv/commit/4086e48f77b16755a23289c18d9e2cfde0ffd072))
+
 ## [0.3.0](https://github.com/1dot5/smonoenv/compare/smonoenv-v0.2.0...smonoenv-v0.3.0) (2026-03-25)
 
 
