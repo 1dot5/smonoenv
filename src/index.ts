@@ -4,6 +4,8 @@ export { decrypt } from "./commands/decrypt.js";
 export { edit } from "./commands/edit.js";
 export { sync } from "./commands/sync.js";
 export { local } from "./commands/local.js";
+export { exportEnv } from "./commands/export.js";
+export type { ExportFormat } from "./commands/export.js";
 export { parseMono, normalize, parseEnvFile } from "./lib/parser.js";
 export { getEnvFile, getSopsEnv, getMonoFile, targetFile } from "./lib/config.js";
 export { checkCommand, ensureSops, ensureTools } from "./lib/sops.js";

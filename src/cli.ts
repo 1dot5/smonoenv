@@ -7,6 +7,7 @@ import { decrypt } from "./commands/decrypt.js";
 import { edit } from "./commands/edit.js";
 import { sync } from "./commands/sync.js";
 import { local } from "./commands/local.js";
+import { exportEnv, type ExportFormat } from "./commands/export.js";
 
 function usage(): void {
   console.log(`
@@ -21,6 +22,7 @@ Commands:
   decrypt <env>      Decrypt .env.monorepo.<env>.sops -> .env.monorepo.<env>
   edit <env>         Edit encrypted file directly with $EDITOR
   sync [env]         Sync decrypted env to apps (default: local)
+  export <file>      Export .env file in a specified format
   local              Decrypt + sync local environment (shortcut)
   help               Show this help
 
@@ -33,6 +35,9 @@ Sync options:
   --clean            Delete target .env files before syncing
   --quiet            Suppress informational output
 
+Export options:
+  --format <fmt>     Output format: key-value (default: key-value)
+
 Environments:
   local, staging, production
 
@@ -43,6 +48,7 @@ Examples:
   smonoenv decrypt staging          # Decrypt staging secrets
   smonoenv encrypt production       # Encrypt production secrets
   smonoenv sync --check             # CI: verify env files are in sync
+  smonoenv export --format key-value .env  # Output as KEY=val,KEY2=val2
 `);
 }
 
@@ -87,6 +93,17 @@ switch (command) {
       clean: flags.has("--clean"),
       quiet: flags.has("--quiet"),
     });
+    break;
+  }
+
+  case "export": {
+    const formatFlag = args.find((_, i) => args[i - 1] === "--format") ?? "key-value";
+    const exportFile = positional[1];
+    if (!exportFile) {
+      console.error("Usage: smonoenv export <file> [--format key-value]");
+      process.exit(1);
+    }
+    exportEnv(exportFile, formatFlag as ExportFormat);
     break;
   }
 
