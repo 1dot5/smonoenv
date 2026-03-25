@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { ENVS, type Env } from "./lib/types.js";
+import { parseArgs } from "./lib/args.js";
 import { setup } from "./commands/setup.js";
 import { encrypt } from "./commands/encrypt.js";
 import { decrypt } from "./commands/decrypt.js";
@@ -61,11 +62,7 @@ function validateEnv(env: string | undefined): Env {
   return env as Env;
 }
 
-const args = process.argv.slice(2);
-const command = args[0];
-
-const flags = new Set(args.filter((a) => a.startsWith("--")));
-const positional = args.filter((a) => !a.startsWith("--"));
+const { command, positional, flags, flagValues } = parseArgs(process.argv);
 
 switch (command) {
   case "setup":
@@ -73,19 +70,19 @@ switch (command) {
     break;
 
   case "encrypt":
-    encrypt(validateEnv(positional[1]));
+    encrypt(validateEnv(positional[0]));
     break;
 
   case "decrypt":
-    decrypt(validateEnv(positional[1]));
+    decrypt(validateEnv(positional[0]));
     break;
 
   case "edit":
-    edit(validateEnv(positional[1]));
+    edit(validateEnv(positional[0]));
     break;
 
   case "sync": {
-    const env = positional[1] ? validateEnv(positional[1]) : ("local" as Env);
+    const env = positional[0] ? validateEnv(positional[0]) : ("local" as Env);
     sync({
       env,
       check: flags.has("--check"),
@@ -97,8 +94,8 @@ switch (command) {
   }
 
   case "export": {
-    const formatFlag = args.find((_, i) => args[i - 1] === "--format") ?? "key-value";
-    const exportFile = positional[1];
+    const formatFlag = flagValues.get("--format") ?? "key-value";
+    const exportFile = positional[0];
     if (!exportFile) {
       console.error("Usage: smonoenv export <file> [--format key-value]");
       process.exit(1);
