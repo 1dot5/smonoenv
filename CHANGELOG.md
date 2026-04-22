@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/1dot5/smonoenv/compare/smonoenv-v0.3.1...smonoenv-v0.4.0) (2026-04-22)
+
+
+### Features
+
+* improve security ([#5](https://github.com/1dot5/smonoenv/issues/5)) ([af4b256](https://github.com/1dot5/smonoenv/commit/af4b2564b8539e6b3f40cf53b2bb56bd5ab0a153))
+
 ## [0.3.1](https://github.com/1dot5/smonoenv/compare/smonoenv-v0.3.0...smonoenv-v0.3.1) (2026-03-25)
 
 
