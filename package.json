@@ -24,6 +24,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "pretest": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "tsc"
