@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { getEnvFile } from "../lib/config.js";
 import { decrypt } from "./decrypt.js";
-import { sync } from "./sync.js";
+import { SyncError, sync } from "./sync.js";
 
 export function local(): void {
   const env = "local" as const;
@@ -15,5 +15,13 @@ export function local(): void {
   }
 
   decrypt(env);
-  sync({ env, check: false, dry: false, clean: false, quiet: false });
+  try {
+    sync({ env, check: false, dry: false, clean: false, quiet: false });
+  } catch (err) {
+    if (err instanceof SyncError) {
+      console.error(err.message);
+      process.exit(err.exitCode);
+    }
+    throw err;
+  }
 }

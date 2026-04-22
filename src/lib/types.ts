@@ -12,6 +12,7 @@ export interface SyncOptions {
   dry: boolean;
   clean: boolean;
   quiet: boolean;
+  apps?: string[];
 }
 
 export interface SyncResult {

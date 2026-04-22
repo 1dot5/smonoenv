@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { getEnvFile, getMonoFile, targetFile } from "./config.js";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import {
+  PROJECT_DIR_NAME,
+  findProjectDir,
+  getEnvFile,
+  getMonoFile,
+  targetFile,
+} from "./config.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -79,5 +85,35 @@ describe("targetFile", () => {
     expect(targetFile("packages/shared/config", "/root")).toBe(
       join("/root", "packages/shared/config", ".env"),
     );
+  });
+});
+
+describe("findProjectDir", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "smonoenv-findproj-"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("returns null when no .smonoenv/ is found", () => {
+    expect(findProjectDir(root)).toBeNull();
+  });
+
+  it("finds .smonoenv/ at the given cwd", () => {
+    const dir = join(root, PROJECT_DIR_NAME);
+    mkdirSync(dir, { recursive: true });
+    expect(findProjectDir(root)).toBe(dir);
+  });
+
+  it("walks up parent directories", () => {
+    const dir = join(root, PROJECT_DIR_NAME);
+    mkdirSync(dir, { recursive: true });
+    const nested = join(root, "apps", "web", "src");
+    mkdirSync(nested, { recursive: true });
+    expect(findProjectDir(nested)).toBe(dir);
   });
 });

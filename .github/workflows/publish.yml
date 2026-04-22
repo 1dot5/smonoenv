@@ -3,44 +3,98 @@ name: Release
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release-please:
+  ci:
+    if: ${{ github.actor == 'motoya-k' || github.actor == 'github-actions[bot]' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
+  release-please:
+    needs: ci
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    needs: [ci, release-please]
+    if: ${{ github.event_name == 'push' && needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@1dot5/smonoenv
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+          cache: pnpm
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm test
+
+      - name: Inspect package contents
+        run: |
+          set -euo pipefail
+          pnpm pack --pack-destination /tmp/pkg
+          tgz=$(ls /tmp/pkg/*.tgz | head -n 1)
+          echo "Package: $tgz"
+          tar -tzf "$tgz"
+          echo "---- forbidden file scan ----"
+          if tar -tzf "$tgz" | grep -E '(^|/)(\.env($|\..*)|keys\.txt|.*\.age-key|\.env\.monorepo\.)' ; then
+            echo "Forbidden file(s) detected in package; aborting publish." >&2
+            exit 1
+          fi
+
       - run: pnpm publish --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
