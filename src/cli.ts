@@ -6,9 +6,14 @@ import { setup } from "./commands/setup.js";
 import { encrypt } from "./commands/encrypt.js";
 import { decrypt } from "./commands/decrypt.js";
 import { edit } from "./commands/edit.js";
-import { sync } from "./commands/sync.js";
+import { SyncError, sync } from "./commands/sync.js";
 import { local } from "./commands/local.js";
 import { exportEnv, type ExportFormat } from "./commands/export.js";
+import {
+  PRINT_ENV_FORMATS,
+  run,
+  type PrintEnvFormat,
+} from "./commands/run.js";
 
 function usage(): void {
   console.log(`
@@ -25,10 +30,14 @@ Commands:
   sync [env]         Sync decrypted env to apps (default: local)
   export <file>      Export .env file in a specified format
   local              Decrypt + sync local environment (shortcut)
+  run <env> -- <cmd> [args...]
+                     Decrypt + sync, then exec <cmd> (container entrypoint)
   help               Show this help
 
 Setup options:
   --create-key       Generate a new age key
+  --project          Use project-local .smonoenv/ (instead of ~/.config/sops/age/)
+  --env <env>        Scope the age key to a specific env (.smonoenv/keys.<env>.txt)
 
 Sync options:
   --check            Check if files are in sync (exit 1 if drift)
@@ -39,17 +48,34 @@ Sync options:
 Export options:
   --format <fmt>     Output format: key-value (default: key-value)
 
+Run options:
+  --app <path>       Only sync this app path (repeatable)
+  --clean            Delete target .env files before syncing
+  --keep-artifacts   Keep decrypted plaintext + age key tmpfile (debug only)
+  --no-sync          Decrypt only (useful with --print-env)
+  --print-env        Print env to stdout instead of exec
+  --format <fmt>     --print-env format: dotenv (default) | shell | json
+  --quiet            Suppress informational output
+
 Environments:
   local, staging, production
 
 Examples:
-  smonoenv setup                    # First-time setup
-  smonoenv setup --create-key       # Generate a new age key
+  smonoenv setup                    # First-time setup (legacy global key)
+  smonoenv setup --create-key       # Generate a new age key at the default path
+  smonoenv setup --project --create-key
+                                    # Generate .smonoenv/keys.txt (project-local)
+  smonoenv setup --project --env production --create-key
+                                    # Generate .smonoenv/keys.production.txt (env-scoped)
   smonoenv local                    # Setup local dev environment
   smonoenv decrypt staging          # Decrypt staging secrets
   smonoenv encrypt production       # Encrypt production secrets
   smonoenv sync --check             # CI: verify env files are in sync
   smonoenv export --format key-value .env  # Output as KEY=val,KEY2=val2
+  smonoenv run production -- node dist/main.js
+                                    # Container entrypoint: decrypt+sync+exec
+  smonoenv run staging --print-env --format shell
+                                    # eval "$(...)" to load into shell
 `);
 }
 
@@ -62,12 +88,35 @@ function validateEnv(env: string | undefined): Env {
   return env as Env;
 }
 
-const { command, positional, flags, flagValues } = parseArgs(process.argv);
+function handleSyncError(err: unknown): never | void {
+  if (err instanceof SyncError) {
+    console.error(err.message);
+    process.exit(err.exitCode);
+  }
+  throw err;
+}
+
+const { command, positional, flags, flagValues, flagMultiValues, passthrough } =
+  parseArgs(process.argv);
 
 switch (command) {
-  case "setup":
-    setup({ createKey: flags.has("--create-key") });
+  case "setup": {
+    const setupEnvFlag = flagValues.get("--env");
+    setup({
+      createKey: flags.has("--create-key"),
+      project: flags.has("--project"),
+      env: setupEnvFlag
+        ? (ENVS as readonly string[]).includes(setupEnvFlag)
+          ? (setupEnvFlag as Env)
+          : (() => {
+              console.error(`Invalid --env value: ${setupEnvFlag}`);
+              console.error(`   Valid: ${ENVS.join(", ")}`);
+              process.exit(1);
+            })()
+        : undefined,
+    });
     break;
+  }
 
   case "encrypt":
     encrypt(validateEnv(positional[0]));
@@ -83,13 +132,17 @@ switch (command) {
 
   case "sync": {
     const env = positional[0] ? validateEnv(positional[0]) : ("local" as Env);
-    sync({
-      env,
-      check: flags.has("--check"),
-      dry: flags.has("--dry"),
-      clean: flags.has("--clean"),
-      quiet: flags.has("--quiet"),
-    });
+    try {
+      sync({
+        env,
+        check: flags.has("--check"),
+        dry: flags.has("--dry"),
+        clean: flags.has("--clean"),
+        quiet: flags.has("--quiet"),
+      });
+    } catch (err) {
+      handleSyncError(err);
+    }
     break;
   }
 
@@ -107,6 +160,37 @@ switch (command) {
   case "local":
     local();
     break;
+
+  case "run": {
+    const envArg = validateEnv(positional[0]);
+    const formatStr = flagValues.get("--format");
+    const printFormat: PrintEnvFormat = (PRINT_ENV_FORMATS as readonly string[]).includes(
+      formatStr ?? "",
+    )
+      ? (formatStr as PrintEnvFormat)
+      : "dotenv";
+
+    run(
+      envArg,
+      {
+        apps: flagMultiValues.get("--app"),
+        clean: flags.has("--clean"),
+        keepArtifacts: flags.has("--keep-artifacts"),
+        noSync: flags.has("--no-sync"),
+        printEnv: flags.has("--print-env"),
+        printFormat,
+        quiet: flags.has("--quiet"),
+      },
+      passthrough,
+    ).then(
+      (code) => process.exit(code),
+      (err) => {
+        console.error(err);
+        process.exit(1);
+      },
+    );
+    break;
+  }
 
   case "help":
   case "--help":

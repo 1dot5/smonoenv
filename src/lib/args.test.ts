@@ -85,4 +85,58 @@ describe("parseArgs", () => {
     expect(result.flags.has("--check")).toBe(true);
     expect(result.flags.has("--quiet")).toBe(true);
   });
+
+  it("collects everything after -- into passthrough", () => {
+    const result = parseArgs(
+      argv("run", "production", "--", "node", "dist/main.js", "--flag"),
+    );
+    expect(result.command).toBe("run");
+    expect(result.positional).toEqual(["production"]);
+    expect(result.passthrough).toEqual(["node", "dist/main.js", "--flag"]);
+  });
+
+  it("treats -- with no following args as an empty passthrough", () => {
+    const result = parseArgs(argv("run", "production", "--"));
+    expect(result.passthrough).toEqual([]);
+  });
+
+  it("stops interpreting flags after --", () => {
+    const result = parseArgs(
+      argv("run", "production", "--", "--clean", "--help"),
+    );
+    expect(result.flags.has("--clean")).toBe(false);
+    expect(result.flags.has("--help")).toBe(false);
+    expect(result.passthrough).toEqual(["--clean", "--help"]);
+  });
+
+  it("collects repeated --app values into flagMultiValues", () => {
+    const result = parseArgs(
+      argv(
+        "run",
+        "production",
+        "--app",
+        "apps/web",
+        "--app",
+        "apps/api",
+        "--",
+        "node",
+        "main.js",
+      ),
+    );
+    expect(result.flagMultiValues.get("--app")).toEqual([
+      "apps/web",
+      "apps/api",
+    ]);
+    // flagValues still holds the last one for backwards compatibility
+    expect(result.flagValues.get("--app")).toBe("apps/api");
+    expect(result.passthrough).toEqual(["node", "main.js"]);
+  });
+
+  it("does not treat --app value as a positional", () => {
+    const result = parseArgs(
+      argv("run", "staging", "--app", "apps/web", "--clean"),
+    );
+    expect(result.positional).toEqual(["staging"]);
+    expect(result.flags.has("--clean")).toBe(true);
+  });
 });

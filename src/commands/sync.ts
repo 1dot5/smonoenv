@@ -8,10 +8,42 @@ import {
 import { dirname } from "node:path";
 import { getMonoFile, targetFile } from "../lib/config.js";
 import { parseMono, normalize } from "../lib/parser.js";
-import type { Env, SyncOptions, SyncResult } from "../lib/types.js";
+import type { MonoSection, SyncOptions, SyncResult } from "../lib/types.js";
+
+export class SyncError extends Error {
+  readonly exitCode: number;
+  constructor(message: string, exitCode = 1) {
+    super(message);
+    this.name = "SyncError";
+    this.exitCode = exitCode;
+  }
+}
+
+function stripTrailingSlash(p: string): string {
+  return p.replace(/\/+$/, "");
+}
+
+function filterByApps(
+  sections: MonoSection[],
+  apps: string[] | undefined,
+): MonoSection[] {
+  if (!apps || apps.length === 0) return sections;
+  const wanted = new Set(apps.map(stripTrailingSlash));
+  return sections.filter((s) => {
+    const basePath = stripTrailingSlash(s.path.split(":")[0]);
+    return wanted.has(basePath);
+  });
+}
 
 export function sync(options: SyncOptions): SyncResult {
-  const { env, check: modeCheck, dry: modeDry, clean: modeClean, quiet } = options;
+  const {
+    env,
+    check: modeCheck,
+    dry: modeDry,
+    clean: modeClean,
+    quiet,
+    apps,
+  } = options;
   const cwd = process.cwd();
   const MONO_FILE = getMonoFile(env, cwd);
 
@@ -20,15 +52,14 @@ export function sync(options: SyncOptions): SyncResult {
   }
 
   if (!existsSync(MONO_FILE)) {
-    console.error(`Missing ${MONO_FILE}`);
-    console.error("\nDecrypt from SOPS:");
-    console.error(`  smonoenv decrypt ${env}`);
-    console.error("\nOr create manually.");
-    process.exit(2);
+    throw new SyncError(
+      `Missing ${MONO_FILE}\n\nDecrypt from SOPS:\n  smonoenv decrypt ${env}\n\nOr create manually.`,
+      2,
+    );
   }
 
   const mono = readFileSync(MONO_FILE, "utf8");
-  const sections = parseMono(mono);
+  const sections = filterByApps(parseMono(mono), apps);
 
   if (modeClean) {
     if (!quiet) console.log("Cleaning existing .env files...");
@@ -96,11 +127,12 @@ export function sync(options: SyncOptions): SyncResult {
 
   if (modeCheck) {
     if (changed > 0) {
-      console.error(
+      throw new SyncError(
         `Found ${changed} out-of-sync file(s). Run: smonoenv sync ${env}`,
+        1,
       );
-      process.exit(1);
-    } else if (!quiet) {
+    }
+    if (!quiet) {
       console.log("All env files are in sync.");
     }
   } else if (!quiet) {
